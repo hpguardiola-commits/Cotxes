@@ -1,0 +1,16 @@
+{
+  "name": "Comparativa de cotxes",
+  "short_name": "Cotxes",
+  "description": "Comparativa familiar de cotxes: fiabilitat, preu, autonomia i valoracions personals.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12151b",
+  "theme_color": "#12151b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
