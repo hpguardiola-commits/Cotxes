@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graella — Comparativa de cotxes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #12151b;
+    --surface: #1a1f28;
+    --surface-2: #212734;
+    --line: #2b3242;
+    --text: #eceef2;
+    --text-dim: #8c94a6;
+    --accent: #2dd4bf;      /* EV plug teal */
+    --accent-dim: #1a3934;
+    --amber: #f5a623;       /* price / economia */
+    --gold: #e8b649;
+    --silver: #b9c1cf;
+    --bronze: #c98a55;
+    --danger: #e5484d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #1b2e2b 0%, transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    padding-bottom:80px;
+  }
+  ::selection{ background:var(--accent); color:#08110f; }
+
+  .wrap{ max-width:1040px; margin:0 auto; padding:0 20px; }
+
+  /* ---------- HEADER ---------- */
+  header{
+    border-bottom:1px solid var(--line);
+    padding:36px 0 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  header::before{
+    content:"";
+    position:absolute; top:0; right:-40px; width:280px; height:280px;
+    background: conic-gradient(from 220deg, transparent 0 60%, var(--accent-dim) 60% 100%);
+    border-radius:50%;
+    filter: blur(2px);
+    opacity:.5;
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:clamp(32px, 5vw, 48px);
+    letter-spacing:.01em;
+    text-transform:uppercase;
+    margin-top:6px;
+  }
+  header p{
+    color:var(--text-dim);
+    max-width:560px;
+    margin-top:10px;
+    font-size:14.5px;
+    line-height:1.55;
+  }
+  .formula{
+    margin-top:16px;
+    display:flex; flex-wrap:wrap; gap:6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+  }
+  .formula span{
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    padding:4px 9px;
+    border-radius:5px;
+    color:var(--text-dim);
+  }
+  .formula span b{ color:var(--text); font-weight:600; }
+
+  /* ---------- TOOLBAR ---------- */
+  .toolbar{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:12px; flex-wrap:wrap;
+    padding:22px 0 14px;
+  }
+  .toolbar h2{
+    font-family:'Oswald', sans-serif;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .count-badge{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--accent);
+    font-weight:500;
+  }
+  button.primary{
+    background:var(--accent);
+    color:#07130f;
+    border:none;
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    font-size:13px;
+    padding:11px 18px;
+    border-radius:7px;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  button.primary:hover{ transform:translateY(-1px); box-shadow:0 6px 20px -6px rgba(45,212,191,.55); }
+  button.primary:active{ transform:translateY(0); }
+  button.ghost{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-family:'Inter';
+    font-size:12.5px;
+    padding:8px 12px;
+    border-radius:7px;
+    cursor:pointer;
+  }
+  button.ghost:hover{ color:var(--text); border-color:#3a4356; }
+
+  /* ---------- FORM ---------- */
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:22px;
+    margin-bottom:20px;
+    display:none;
+  }
+  .panel.open{ display:block; animation:drop .18s ease; }
+  @keyframes drop{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+  .panel h3{
+    font-family:'Oswald'; text-transform:uppercase; letter-spacing:.08em; font-size:14px;
+    color:var(--accent); margin-bottom:16px;
+  }
+  .grid-form{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap:14px;
+  }
+  .field label{
+    display:block; font-size:11.5px; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .field input, .field select{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:9px 10px;
+    border-radius:6px;
+    font-size:14px;
+    font-family:'Inter';
+  }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--accent); }
+  .starfield{ display:flex; gap:4px; }
+  .star-btn{
+    background:none; border:none; cursor:pointer; font-size:22px; color:#3a4356;
+    line-height:1; padding:0; transition:color .1s;
+  }
+  .star-btn.filled{ color:var(--amber); }
+  .panel-actions{ display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+
+  /* ---------- LIST ---------- */
+  .car-row{
+    display:grid;
+    grid-template-columns: 46px 1fr auto;
+    gap:16px;
+    align-items:center;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    margin-bottom:10px;
+    transition:border-color .15s;
+  }
+  .car-row:hover{ border-color:#39445a; }
+  .car-row.rank-1{ border-color:var(--gold); box-shadow:0 0 0 1px rgba(232,182,73,.15) inset; }
+  .car-row.rank-2{ border-color:var(--silver); }
+  .car-row.rank-3{ border-color:var(--bronze); }
+
+  .pos{
+    font-family:'Oswald'; font-weight:700; font-size:20px;
+    color:var(--text-dim); text-align:center;
+  }
+  .rank-1 .pos{ color:var(--gold); }
+  .rank-2 .pos{ color:var(--silver); }
+  .rank-3 .pos{ color:var(--bronze); }
+  .pos small{ display:block; font-size:9px; font-family:'JetBrains Mono'; letter-spacing:.08em; opacity:.7; }
+
+  .car-info .top-line{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .car-info .marca{
+    font-family:'Oswald'; font-weight:600; text-transform:uppercase; font-size:12px;
+    color:var(--accent); letter-spacing:.05em;
+  }
+  .car-info .model{ font-family:'Oswald'; font-weight:500; font-size:18px; }
+  .tags{ display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .tag{
+    font-family:'JetBrains Mono', monospace; font-size:10.5px;
+    color:var(--text-dim); background:var(--surface-2);
+    border:1px solid var(--line); padding:2px 7px; border-radius:4px;
+  }
+  .tag.tech-ELECTRIC{ color:var(--accent); border-color:var(--accent-dim); }
+  .tag.tech-E-REV{ color:var(--amber); }
+  .tag.tech-PHEV{ color:#8fb8ff; border-color:#2a3a56; }
+  .tag.tech-HIBRID{ color:#a3e0a0; border-color:#274a2a; }
+
+  .group-header{
+    display:flex; align-items:center; gap:10px;
+    margin:28px 0 12px;
+  }
+  .group-header:first-child{ margin-top:4px; }
+  .group-header .g-title{
+    font-family:'Oswald'; text-transform:uppercase; letter-spacing:.1em;
+    font-size:13px; color:var(--text-dim); white-space:nowrap;
+  }
+  .group-header .g-title b{ color:var(--text); }
+  .group-header .g-line{ flex:1; height:1px; background:var(--line); }
+  .group-header .g-count{
+    font-family:'JetBrains Mono'; font-size:10.5px; color:var(--text-dim);
+  }
+
+  /* ---------- TABS ---------- */
+  .tabs{
+    display:flex; gap:6px; flex-wrap:wrap;
+    padding-bottom:16px; margin-bottom:4px;
+    border-bottom:1px solid var(--line);
+  }
+  .tab{
+    background:var(--surface);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-family:'Oswald', sans-serif;
+    font-weight:500;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    font-size:12.5px;
+    padding:9px 15px;
+    border-radius:8px 8px 0 0;
+    cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+    transition:color .12s, border-color .12s, background .12s;
+  }
+  .tab .tab-count{
+    font-family:'JetBrains Mono', monospace; font-size:10px;
+    background:var(--surface-2); padding:1px 6px; border-radius:20px;
+    color:var(--text-dim);
+  }
+  .tab:hover{ color:var(--text); }
+  .tab.active{
+    color:var(--bg);
+    background:var(--accent);
+    border-color:var(--accent);
+  }
+  .tab.active .tab-count{ background:rgba(7,19,15,.25); color:#07130f; }
+
+  .specs{ display:flex; gap:16px; margin-top:9px; flex-wrap:wrap; }
+  .spec{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--text-dim); }
+  .spec b{ color:var(--text); font-weight:600; }
+
+  .mini-stars{ display:flex; gap:10px; margin-top:9px; flex-wrap:wrap; }
+  .mini-stars .who{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text-dim); }
+  .mini-stars .who .stars{ color:var(--amber); letter-spacing:1px; }
+  .mini-stars .who .name{ font-family:'JetBrains Mono'; text-transform:uppercase; font-size:9.5px; color:var(--text-dim); }
+
+  /* score dial */
+  .score-block{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .dial{
+    width:64px; height:64px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .dial .inner{
+    width:52px; height:52px; border-radius:50%;
+    background:var(--surface);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .dial .val{ font-family:'Oswald'; font-weight:700; font-size:16px; }
+  .dial .max{ font-size:8px; color:var(--text-dim); font-family:'JetBrains Mono'; }
+  .score-block .na{ font-family:'JetBrains Mono'; font-size:10px; color:var(--text-dim); }
+
+  .row-actions{ display:flex; gap:6px; margin-top:8px; }
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--text-dim);
+    width:26px; height:26px; border-radius:6px; cursor:pointer; font-size:12px;
+  }
+  .icon-btn:hover{ color:var(--danger); border-color:var(--danger); }
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--text-dim);
+    border:1px dashed var(--line); border-radius:12px;
+  }
+  .empty b{ display:block; font-family:'Oswald'; font-size:16px; color:var(--text); margin-bottom:6px; text-transform:uppercase; }
+
+  footer{
+    text-align:center; color:var(--text-dim); font-size:11.5px;
+    font-family:'JetBrains Mono', monospace; padding:30px 0 10px;
+  }
+
+  @media (max-width:600px){
+    .car-row{ grid-template-columns: 34px 1fr auto; padding:14px; }
+    .car-info .model{ font-size:16px; }
+    .dial{ width:52px; height:52px; }
+    .dial .inner{ width:42px; height:42px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Taula de puntuació familiar</div>
+    <h1>Comparativa de cotxes</h1>
+    <p>Afig els cotxes que esteu mirant i puntua'ls. Es comparen per separat segons la tecnologia (elèctric, híbrid, PHEV, E-REV...), perquè l'autonomia i el preu no es poden mesurar amb la mateixa vara. Dins de cada grup, la puntuació ix d'una mitjana entre fiabilitat de la marca, preu (mes barat, millor), autonomia i les tres valoracions personals.</p>
+    <div class="formula">
+      <span><b>Fiabilitat</b> marca</span>
+      <span><b>Preu</b> (invers)</span>
+      <span><b>Autonomia</b></span>
+      <span>★ <b>Meua</b></span>
+      <span>★ <b>Aina</b></span>
+      <span>★ <b>Maria</b></span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <h2>Rànquing <span class="count-badge" id="countBadge">— 0 cotxes</span></h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="ghost" id="ocuBtn">Omplir fiabilitat (OCU)</button>
+      <button class="ghost" id="exportBtn">Exportar JSON</button>
+      <button class="ghost" id="importBtn">Importar JSON</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none;">
+      <button class="ghost" id="resetBtn">Reiniciar dades</button>
+      <button class="primary" id="addBtn">+ Afegir cotxe</button>
+    </div>
+  </div>
+  <p id="ocuNote" style="font-size:11.5px; color:var(--text-dim); margin:-6px 0 16px; font-family:'JetBrains Mono', monospace;">
+    Fiabilitat de marca basada en l'enquesta OCU publicada a
+    <a href="https://www.coches.net/noticias/marcas-modelos-coches-mas-fiables" target="_blank" rel="noopener" style="color:var(--accent);">coches.net</a> — escala 0–100 convertida a 1–5.
+  </p>
+
+  <div class="panel" id="formPanel">
+    <h3 id="formTitle">Nou cotxe</h3>
+    <div class="grid-form">
+      <div class="field">
+        <label>Marca</label>
+        <select id="f_marca"></select>
+        <input id="f_marca_new" placeholder="Nom de la marca nova" style="margin-top:6px; display:none;">
+      </div>
+      <div class="field"><label>Model</label><input id="f_model" placeholder="ex. Atto 3"></div>
+      <div class="field"><label>Tipologia</label>
+        <select id="f_tipologia">
+          <option>Turisme</option><option>SUV</option><option>Furgoneta</option><option>Monovolum</option><option>Altres</option>
+        </select>
+      </div>
+      <div class="field"><label>Segment</label>
+        <select id="f_segment">
+          <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
+        </select>
+      </div>
+      <div class="field"><label>Tecnologia</label>
+        <select id="f_tecnologia">
+          <option value="ELECTRIC">Elèctric</option>
+          <option value="E-REV">E-REV (extensor)</option>
+          <option value="PHEV">PHEV (híbrid endollable)</option>
+          <option value="HIBRID">Híbrid</option>
+          <option value="GASOLINA">Gasolina</option>
+          <option value="DIESEL">Diésel</option>
+        </select>
+      </div>
+      <div class="field"><label>Preu tarifa (€)</label><input id="f_preu" type="number" min="0" step="1" placeholder="ex. 33086"></div>
+      <div class="field"><label>Capacitat (kWh)</label><input id="f_capacitat" type="number" min="0" step="1" placeholder="opcional"></div>
+    </div>
+
+    <div class="grid-form" id="groupStandard" style="margin-top:14px;">
+      <div class="field"><label>Autonomia (km)</label><input id="f_autonomia" type="number" min="0" step="1" placeholder="ex. 410"></div>
+      <div class="field"><label>Potència (CV)</label><input id="f_potencia" type="number" min="0" step="1" placeholder="opcional"></div>
+    </div>
+
+    <div class="grid-form" id="groupPhevErev" style="margin-top:14px; display:none;">
+      <div class="field"><label>Autonomia elèctrica (km)</label><input id="f_autonomia_elec" type="number" min="0" step="1" placeholder="ex. 60"></div>
+      <div class="field"><label>Autonomia combustió (km)</label><input id="f_autonomia_comb" type="number" min="0" step="1" placeholder="ex. 650"></div>
+      <div class="field"><label>Potència elèctrica (CV)</label><input id="f_potencia_elec" type="number" min="0" step="1" placeholder="opcional"></div>
+      <div class="field"><label>Potència combustió (CV)</label><input id="f_potencia_comb" type="number" min="0" step="1" placeholder="opcional"></div>
+    </div>
+
+    <div class="grid-form" style="margin-top:16px;">
+      <div class="field"><label>Fiabilitat marca</label><div class="starfield" data-star="f_fiabilitat"></div></div>
+      <div class="field"><label>★ Meua</label><div class="starfield" data-star="f_meua"></div></div>
+      <div class="field"><label>★ Aina</label><div class="starfield" data-star="f_aina"></div></div>
+      <div class="field"><label>★ Maria</label><div class="starfield" data-star="f_maria"></div></div>
+    </div>
+
+    <div class="panel-actions">
+      <button class="ghost" id="cancelBtn">Cancel·lar</button>
+      <button class="primary" id="saveBtn">Guardar cotxe</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabsRoot"></div>
+  <div id="listRoot"></div>
+
+  <footer>DADES COMPARTIDES · ES DESEN AUTOMÀTICAMENT</footer>
+</div>
+
+<script>
+const STORAGE_KEY = 'cars-list';
+let editingId = null;
+let cars = [];
+
+const seed = [
+  {marca:'RENAULT', model:'5 E-TECH', tipologia:'Turisme', segment:'B', tecnologia:'ELECTRIC', preu:33086, autonomia:410, potencia:150, capacitat:52, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'TOYOTA', model:'C-HR +', tipologia:'SUV', segment:'C', tecnologia:'ELECTRIC', preu:36375, autonomia:501, potencia:224, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'NISSAN', model:'Micra', tipologia:'Turisme', segment:'B', tecnologia:'ELECTRIC', preu:30900, autonomia:574, potencia:150, capacitat:52, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'SKODA', model:'Epiq 55', tipologia:'SUV', segment:'B', tecnologia:'ELECTRIC', preu:33100, autonomia:440, potencia:150, capacitat:55, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'SKODA', model:'Elroq', tipologia:'SUV', segment:'C', tecnologia:'ELECTRIC', preu:null, autonomia:null, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Atto 2 Active', tipologia:'SUV', segment:'B', tecnologia:'ELECTRIC', preu:29999, autonomia:403, potencia:null, capacitat:45, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Atto 2', tipologia:'SUV', segment:'B', tecnologia:'E-REV', preu:null, autonomia:null, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Seal Confort', tipologia:'Turisme', segment:'D', tecnologia:'ELECTRIC', preu:36600, autonomia:427, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Seal', tipologia:'Turisme', segment:'D', tecnologia:'E-REV', preu:null, autonomia:null, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Atto 3', tipologia:'SUV', segment:'', tecnologia:'ELECTRIC', preu:null, autonomia:null, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+  {marca:'BYD', model:'Atto 3', tipologia:'SUV', segment:'', tecnologia:'E-REV', preu:null, autonomia:null, potencia:null, capacitat:null, fiabilitat:0, meua:0, aina:0, maria:0},
+];
+
+function uid(){ return 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// Fiabilitat de marca — enquesta OCU (2026), publicada a coches.net
+// https://www.coches.net/noticias/marcas-modelos-coches-mas-fiables
+const OCU_RELIABILITY = {
+  LEXUS:93, TOYOTA:91, SUZUKI:91, SUBARU:91, HONDA:89, TESLA:89, BYD:89, SMART:89,
+  MAZDA:89, MITSUBISHI:89, KIA:89, BMW:87, HYUNDAI:87, MINI:87, LANCIA:87, NISSAN:87,
+  'MERCEDES-BENZ':84, MERCEDES:84, AUDI:84, CUPRA:84, DACIA:84, SEAT:84, PORSCHE:84,
+  SKODA:82, FIAT:82, VOLVO:82, VOLKSWAGEN:82, RENAULT:82, JEEP:82, POLESTAR:82,
+  FORD:80, 'ALFA ROMEO':80, JAGUAR:80, OPEL:80, PEUGEOT:76, CITROEN:76, 'DS AUTOMOBILES':76,
+  DS:76, 'LYNK&CO':76, 'LYNK & CO':76, MG:72, 'LAND ROVER':64
+};
+
+function normBrand(s){
+  return String(s||'')
+    .toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // treu accents
+    .trim();
+}
+
+function ocuScoreFor(marca){
+  const key = normBrand(marca);
+  return OCU_RELIABILITY[key] ?? null;
+}
+
+function ocuStarsFor(marca){
+  const score = ocuScoreFor(marca);
+  if(score == null) return null;
+  return Math.min(5, Math.max(1, Math.round((score/100)*5)));
+}
+
+// Llista de marques (noms canònics per al desplegable) de l'enquesta OCU
+const OCU_BRANDS = [
+  'Alfa Romeo','Audi','BMW','BYD','Citroën','Cupra','Dacia','DS Automobiles','Fiat',
+  'Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Lancia','Land Rover','Lexus',
+  'Lynk & Co','Mazda','Mercedes-Benz','MG','Mini','Mitsubishi','Nissan','Opel',
+  'Peugeot','Polestar','Porsche','Renault','Seat','Skoda','smart','Subaru',
+  'Suzuki','Tesla','Toyota','Volkswagen','Volvo'
+].sort((a,b) => a.localeCompare(b, 'ca'));
+
+const NEW_BRAND_VALUE = '__new__';
+
+function populateMarcaSelect(){
+  const sel = document.getElementById('f_marca');
+  sel.innerHTML = OCU_BRANDS.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('')
+    + `<option value="${NEW_BRAND_VALUE}">+ Afegir marca nova…</option>`;
+}
+
+function setMarcaValue(marca){
+  const sel = document.getElementById('f_marca');
+  const newInput = document.getElementById('f_marca_new');
+  const match = OCU_BRANDS.find(b => normBrand(b) === normBrand(marca));
+  if(match){
+    sel.value = match;
+    newInput.style.display = 'none';
+    newInput.value = '';
+  }else{
+    sel.value = NEW_BRAND_VALUE;
+    newInput.style.display = 'block';
+    newInput.value = marca || '';
+  }
+}
+
+function getMarcaValue(){
+  const sel = document.getElementById('f_marca');
+  const newInput = document.getElementById('f_marca_new');
+  if(sel.value === NEW_BRAND_VALUE) return newInput.value.trim();
+  return sel.value;
+}
+
+async function loadCars(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, true);
+    cars = res && res.value ? JSON.parse(res.value) : null;
+  }catch(e){ cars = null; }
+  if(!cars){
+    cars = seed.map(c => ({...c, id: uid()}));
+    await persist();
+  }
+  render();
+}
+
+async function persist(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(cars), true);
+  }catch(e){ console.error('Error guardant', e); }
+}
+
+function isSplitTech(tech){
+  return tech === 'PHEV' || tech === 'E-REV';
+}
+
+function effectiveAutonomia(car){
+  if(isSplitTech(car.tecnologia)){
+    const e = car.autonomiaElectrica || 0;
+    const c = car.autonomiaCombustio || 0;
+    return (e + c) > 0 ? (e + c) : null;
+  }
+  return car.autonomia;
+}
+
+function norm(value, min, max, invert){
+  if(max === min) return 5;
+  let t = (value - min) / (max - min);
+  if(invert) t = 1 - t;
+  return 1 + t * 4; // 1..5
+}
+
+function computeScore(car){
+  const parts = [];
+  if(car.fiabilitat) parts.push(car.fiabilitat);
+
+  const sameGroup = cars.filter(c => c.tecnologia === car.tecnologia);
+
+  const priced = sameGroup.filter(c => c.preu != null && c.preu > 0);
+  if(car.preu != null && car.preu > 0){
+    if(priced.length > 1){
+      const min = Math.min(...priced.map(c=>c.preu));
+      const max = Math.max(...priced.map(c=>c.preu));
+      parts.push(norm(car.preu, min, max, true));
+    } else parts.push(5);
+  }
+
+  const carAutonomia = effectiveAutonomia(car);
+  const ranged = sameGroup
+    .map(c => ({c, a: effectiveAutonomia(c)}))
+    .filter(x => x.a != null && x.a > 0);
+  if(carAutonomia != null && carAutonomia > 0){
+    if(ranged.length > 1){
+      const min = Math.min(...ranged.map(x=>x.a));
+      const max = Math.max(...ranged.map(x=>x.a));
+      parts.push(norm(carAutonomia, min, max, false));
+    } else parts.push(5);
+  }
+
+  if(car.meua) parts.push(car.meua);
+  if(car.aina) parts.push(car.aina);
+  if(car.maria) parts.push(car.maria);
+
+  if(parts.length === 0) return null;
+  return parts.reduce((a,b)=>a+b,0) / parts.length;
+}
+
+function starRow(value){
+  let s = '';
+  for(let i=1;i<=5;i++) s += (i<=value ? '★' : '☆');
+  return s;
+}
+
+function techLabel(t){
+  return {ELECTRIC:'Elèctric', 'E-REV':'E-REV', PHEV:'PHEV', HIBRID:'Híbrid', GASOLINA:'Gasolina', DIESEL:'Diésel'}[t] || t;
+}
+
+function euro(n){
+  if(n == null) return '—';
+  return n.toLocaleString('ca-ES') + ' €';
+}
+
+let activeTab = 'ALL';
+
+function render(){
+  const listRootEl = document.getElementById('listRoot');
+  const tabsRootEl = document.getElementById('tabsRoot');
+  document.getElementById('countBadge').textContent = `— ${cars.length} cotxe${cars.length===1?'':'s'}`;
+
+  if(cars.length === 0){
+    tabsRootEl.innerHTML = '';
+    listRootEl.innerHTML = `<div class="empty"><b>Encara no hi ha cap cotxe</b>Prem "+ Afegir cotxe" per començar la comparativa.</div>`;
+    return;
+  }
+
+  const scored = cars.map(c => ({...c, score: computeScore(c)}));
+
+  // agrupar per tecnologia, seguint un ordre preferent
+  const techOrder = ['ELECTRIC','E-REV','PHEV','HIBRID','GASOLINA','DIESEL'];
+  const groups = {};
+  scored.forEach(c => {
+    const key = c.tecnologia || 'ALTRES';
+    (groups[key] = groups[key] || []).push(c);
+  });
+  const keys = Object.keys(groups).sort((a,b) => {
+    const ia = techOrder.indexOf(a), ib = techOrder.indexOf(b);
+    return (ia<0?99:ia) - (ib<0?99:ib);
+  });
+
+  if(activeTab !== 'ALL' && !keys.includes(activeTab)) activeTab = 'ALL';
+
+  // ---- pestanyes ----
+  const tabDefs = [{key:'ALL', label:'Tots', count: cars.length}]
+    .concat(keys.map(k => ({key:k, label:techLabel(k), count: groups[k].length})));
+
+  tabsRootEl.innerHTML = tabDefs.map(t => `
+    <button class="tab ${activeTab===t.key?'active':''}" onclick="setTab('${t.key}')">
+      ${esc(t.label)} <span class="tab-count">${t.count}</span>
+    </button>
+  `).join('');
+
+  // ---- llista ----
+  const keysToShow = activeTab === 'ALL' ? keys : [activeTab];
+
+  listRootEl.innerHTML = keysToShow.map(key => {
+    const list = groups[key].slice().sort((a,b) => {
+      if(a.score == null && b.score == null) return 0;
+      if(a.score == null) return 1;
+      if(b.score == null) return -1;
+      return b.score - a.score;
+    });
+
+    const rows = list.map((c, idx) => {
+      const rankClass = idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'';
+      const scoreColor = c.score == null ? 'var(--text-dim)' :
+        c.score >= 4 ? 'var(--accent)' : c.score >= 2.5 ? 'var(--amber)' : 'var(--danger)';
+      return `
+      <div class="car-row ${rankClass}">
+        <div class="pos">P${idx+1}<small>${idx===0?'TOP':''}</small></div>
+        <div class="car-info">
+          <div class="top-line">
+            <span class="marca">${esc(c.marca)}</span>
+            <span class="model">${esc(c.model)}</span>
+          </div>
+          <div class="tags">
+            <span class="tag">${esc(c.tipologia||'—')}</span>
+            <span class="tag">Seg. ${esc(c.segment||'—')}</span>
+            <span class="tag tech-${esc(c.tecnologia)}">${techLabel(c.tecnologia)}</span>
+          </div>
+          <div class="specs">
+            <span class="spec"><b>${euro(c.preu)}</b> preu</span>
+            ${isSplitTech(c.tecnologia) ? `
+              <span class="spec"><b>${c.autonomiaElectrica ?? '—'}</b> km elèctric</span>
+              <span class="spec"><b>${c.autonomiaCombustio ?? '—'}</b> km combustió</span>
+              ${c.potenciaElectrica ? `<span class="spec"><b>${c.potenciaElectrica}</b> CV elèctric</span>` : ''}
+              ${c.potenciaCombustio ? `<span class="spec"><b>${c.potenciaCombustio}</b> CV combustió</span>` : ''}
+            ` : `
+              <span class="spec"><b>${c.autonomia ?? '—'}</b> km autonomia</span>
+              ${c.potencia ? `<span class="spec"><b>${c.potencia}</b> CV</span>` : ''}
+            `}
+            ${c.capacitat ? `<span class="spec"><b>${c.capacitat}</b> kWh</span>` : ''}
+          </div>
+          <div class="mini-stars">
+            <span class="who"><span class="name">Marca</span><span class="stars">${starRow(c.fiabilitat)}</span></span>
+            <span class="who"><span class="name">Meua</span><span class="stars">${starRow(c.meua)}</span></span>
+            <span class="who"><span class="name">Aina</span><span class="stars">${starRow(c.aina)}</span></span>
+            <span class="who"><span class="name">Maria</span><span class="stars">${starRow(c.maria)}</span></span>
+          </div>
+        </div>
+        <div>
+          <div class="score-block">
+            <div class="dial" style="background:conic-gradient(${scoreColor} ${c.score ? (c.score/5*360) : 0}deg, var(--line) 0deg);">
+              <div class="inner">
+                ${c.score != null
+                  ? `<span class="val">${c.score.toFixed(1)}</span><span class="max">/ 5</span>`
+                  : `<span class="na">S/P</span>`}
+              </div>
+            </div>
+          </div>
+          <div class="row-actions">
+            <button class="icon-btn" onclick="editCar('${c.id}')" title="Editar">✎</button>
+            <button class="icon-btn" onclick="deleteCar('${c.id}')" title="Eliminar">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const showHeader = activeTab === 'ALL';
+    return `
+      ${showHeader ? `
+      <div class="group-header">
+        <span class="g-title">${techLabel(key)}</span>
+        <span class="g-line"></span>
+        <span class="g-count">${list.length} cotxe${list.length===1?'':'s'}</span>
+      </div>` : ''}
+      ${rows}
+    `;
+  }).join('');
+}
+
+window.setTab = (key) => {
+  activeTab = key;
+  render();
+};
+
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ---------- FORM ----------
+const panel = document.getElementById('formPanel');
+const starFields = {};
+
+function buildStarField(container, key){
+  container.innerHTML = '';
+  let val = 0;
+  for(let i=1;i<=5;i++){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'star-btn';
+    b.textContent = '★';
+    b.dataset.i = i;
+    b.onclick = () => { val = (val === i) ? 0 : i; paint(); };
+    container.appendChild(b);
+  }
+  function paint(){
+    [...container.children].forEach(b => b.classList.toggle('filled', +b.dataset.i <= val));
+  }
+  starFields[key] = { get: () => val, set: v => { val = v || 0; paint(); } };
+}
+function toggleAutonomiaGroups(){
+  const tech = document.getElementById('f_tecnologia').value;
+  const split = isSplitTech(tech);
+  document.getElementById('groupStandard').style.display = split ? 'none' : 'grid';
+  document.getElementById('groupPhevErev').style.display = split ? 'grid' : 'none';
+}
+document.getElementById('f_tecnologia').addEventListener('change', toggleAutonomiaGroups);
+
+document.querySelectorAll('.starfield').forEach(el => buildStarField(el, el.dataset.star));
+
+populateMarcaSelect();
+document.getElementById('f_marca').addEventListener('change', (e) => {
+  const newInput = document.getElementById('f_marca_new');
+  if(e.target.value === NEW_BRAND_VALUE){
+    newInput.style.display = 'block';
+    newInput.focus();
+  }else{
+    newInput.style.display = 'none';
+    newInput.value = '';
+  }
+});
+
+function resetForm(){
+  editingId = null;
+  document.getElementById('formTitle').textContent = 'Nou cotxe';
+  setMarcaValue('');
+  document.getElementById('f_marca').selectedIndex = 0;
+  document.getElementById('f_marca_new').style.display = 'none';
+  document.getElementById('f_model').value = '';
+  document.getElementById('f_tipologia').value = 'Turisme';
+  document.getElementById('f_segment').value = 'B';
+  document.getElementById('f_tecnologia').value = 'ELECTRIC';
+  document.getElementById('f_preu').value = '';
+  document.getElementById('f_autonomia').value = '';
+  document.getElementById('f_potencia').value = '';
+  document.getElementById('f_capacitat').value = '';
+  document.getElementById('f_autonomia_elec').value = '';
+  document.getElementById('f_autonomia_comb').value = '';
+  document.getElementById('f_potencia_elec').value = '';
+  document.getElementById('f_potencia_comb').value = '';
+  toggleAutonomiaGroups();
+  Object.values(starFields).forEach(s => s.set(0));
+}
+
+document.getElementById('addBtn').onclick = () => {
+  resetForm();
+  panel.classList.add('open');
+  document.getElementById('f_marca').focus();
+};
+document.getElementById('cancelBtn').onclick = () => panel.classList.remove('open');
+
+document.getElementById('saveBtn').onclick = async () => {
+  const marca = getMarcaValue();
+  const model = document.getElementById('f_model').value.trim();
+  if(!marca || !model){ alert('Cal indicar almenys la marca i el model.'); return; }
+
+  const data = {
+    marca, model,
+    tipologia: document.getElementById('f_tipologia').value,
+    segment: document.getElementById('f_segment').value,
+    tecnologia: document.getElementById('f_tecnologia').value,
+    preu: document.getElementById('f_preu').value ? +document.getElementById('f_preu').value : null,
+    autonomia: document.getElementById('f_autonomia').value ? +document.getElementById('f_autonomia').value : null,
+    potencia: document.getElementById('f_potencia').value ? +document.getElementById('f_potencia').value : null,
+    capacitat: document.getElementById('f_capacitat').value ? +document.getElementById('f_capacitat').value : null,
+    autonomiaElectrica: document.getElementById('f_autonomia_elec').value ? +document.getElementById('f_autonomia_elec').value : null,
+    autonomiaCombustio: document.getElementById('f_autonomia_comb').value ? +document.getElementById('f_autonomia_comb').value : null,
+    potenciaElectrica: document.getElementById('f_potencia_elec').value ? +document.getElementById('f_potencia_elec').value : null,
+    potenciaCombustio: document.getElementById('f_potencia_comb').value ? +document.getElementById('f_potencia_comb').value : null,
+    fiabilitat: starFields.f_fiabilitat.get(),
+    meua: starFields.f_meua.get(),
+    aina: starFields.f_aina.get(),
+    maria: starFields.f_maria.get(),
+  };
+
+  if(editingId){
+    const idx = cars.findIndex(c => c.id === editingId);
+    cars[idx] = {...cars[idx], ...data};
+  }else{
+    cars.push({...data, id: uid()});
+  }
+  await persist();
+  panel.classList.remove('open');
+  render();
+};
+
+window.editCar = (id) => {
+  const c = cars.find(c => c.id === id);
+  if(!c) return;
+  editingId = id;
+  document.getElementById('formTitle').textContent = `Editar ${c.marca} ${c.model}`;
+  setMarcaValue(c.marca);
+  document.getElementById('f_model').value = c.model;
+  document.getElementById('f_tipologia').value = c.tipologia || 'Turisme';
+  document.getElementById('f_segment').value = c.segment || 'B';
+  document.getElementById('f_tecnologia').value = c.tecnologia || 'ELECTRIC';
+  document.getElementById('f_preu').value = c.preu ?? '';
+  document.getElementById('f_autonomia').value = c.autonomia ?? '';
+  document.getElementById('f_potencia').value = c.potencia ?? '';
+  document.getElementById('f_capacitat').value = c.capacitat ?? '';
+  document.getElementById('f_autonomia_elec').value = c.autonomiaElectrica ?? '';
+  document.getElementById('f_autonomia_comb').value = c.autonomiaCombustio ?? '';
+  document.getElementById('f_potencia_elec').value = c.potenciaElectrica ?? '';
+  document.getElementById('f_potencia_comb').value = c.potenciaCombustio ?? '';
+  toggleAutonomiaGroups();
+  starFields.f_fiabilitat.set(c.fiabilitat);
+  starFields.f_meua.set(c.meua);
+  starFields.f_aina.set(c.aina);
+  starFields.f_maria.set(c.maria);
+  panel.classList.add('open');
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+
+window.deleteCar = async (id) => {
+  const c = cars.find(c => c.id === id);
+  if(!c) return;
+  if(!confirm(`Eliminar ${c.marca} ${c.model}?`)) return;
+  cars = cars.filter(c => c.id !== id);
+  await persist();
+  render();
+};
+
+// ---------- FIABILITAT OCU ----------
+document.getElementById('ocuBtn').onclick = async () => {
+  const matches = cars.filter(c => ocuStarsFor(c.marca) != null);
+  if(matches.length === 0){
+    alert('Cap marca de la teua llista apareix a l\'enquesta OCU.');
+    return;
+  }
+  const withData = matches.filter(c => c.fiabilitat > 0);
+  let overwrite = true;
+  if(withData.length > 0){
+    overwrite = confirm(`${matches.length} cotxe(s) tenen marca reconeguda per l'OCU (${withData.length} ja tenen fiabilitat puntuada).\n\nAcceptar: sobreescriure-ho tot amb la puntuació OCU.\nCancel·lar: només omplir les que encara no tenen fiabilitat.`);
+  }
+  cars = cars.map(c => {
+    const stars = ocuStarsFor(c.marca);
+    if(stars == null) return c;
+    if(overwrite || !(c.fiabilitat > 0)) return {...c, fiabilitat: stars};
+    return c;
+  });
+  await persist();
+  render();
+};
+
+// ---------- EXPORTAR JSON ----------
+document.getElementById('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(cars, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `comparativa-cotxes-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+// ---------- IMPORTAR JSON ----------
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if(!Array.isArray(parsed)) throw new Error('El fitxer no conté una llista de cotxes.');
+    const normalized = parsed.map(c => ({
+      id: c.id && typeof c.id === 'string' ? c.id : uid(),
+      marca: c.marca || '',
+      model: c.model || '',
+      tipologia: c.tipologia || 'Turisme',
+      segment: c.segment || '',
+      tecnologia: c.tecnologia || 'ELECTRIC',
+      preu: c.preu != null ? +c.preu : null,
+      autonomia: c.autonomia != null ? +c.autonomia : null,
+      potencia: c.potencia != null ? +c.potencia : null,
+      capacitat: c.capacitat != null ? +c.capacitat : null,
+      autonomiaElectrica: c.autonomiaElectrica != null ? +c.autonomiaElectrica : null,
+      autonomiaCombustio: c.autonomiaCombustio != null ? +c.autonomiaCombustio : null,
+      potenciaElectrica: c.potenciaElectrica != null ? +c.potenciaElectrica : null,
+      potenciaCombustio: c.potenciaCombustio != null ? +c.potenciaCombustio : null,
+      fiabilitat: +c.fiabilitat || 0,
+      meua: +c.meua || 0,
+      aina: +c.aina || 0,
+      maria: +c.maria || 0,
+    }));
+    const replace = confirm(`S'han trobat ${normalized.length} cotxe(s) al fitxer.\n\nAcceptar: reemplaçar tota la llista actual.\nCancel·lar: afegir-los a la llista actual.`);
+    if(replace){
+      cars = normalized;
+    }else{
+      // eviten ids duplicats en afegir
+      const existingIds = new Set(cars.map(c=>c.id));
+      cars = cars.concat(normalized.map(c => existingIds.has(c.id) ? {...c, id: uid()} : c));
+    }
+    await persist();
+    render();
+  }catch(err){
+    alert('No s\'ha pogut llegir el fitxer: ' + err.message);
+  }finally{
+    e.target.value = '';
+  }
+};
+
+document.getElementById('resetBtn').onclick = async () => {
+  if(!confirm('Això esborrarà tots els cotxes i tornarà a les dades inicials. Continuar?')) return;
+  cars = seed.map(c => ({...c, id: uid()}));
+  await persist();
+  render();
+};
+
+loadCars();
+</script>
+</body>
+</html>
