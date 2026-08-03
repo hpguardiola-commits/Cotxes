@@ -222,6 +222,12 @@
     color:var(--accent); letter-spacing:.05em;
   }
   .car-info .model{ font-family:'Oswald'; font-weight:500; font-size:18px; }
+  .complete-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%;
+    background:var(--accent); color:#07130f;
+    font-size:11px; font-weight:700; flex-shrink:0;
+  }
   .tags{ display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
   .tag{
     font-family:'JetBrains Mono', monospace; font-size:10.5px;
@@ -339,16 +345,6 @@
   <header>
     <div class="eyebrow">Taula de puntuació familiar</div>
     <h1>Comparativa de cotxes</h1>
-    <p>Afig els cotxes que esteu mirant i puntua'ls. Es comparen per separat segons la tecnologia (elèctric, híbrid, PHEV, E-REV...), perquè l'autonomia i el preu no es poden mesurar amb la mateixa vara. Dins de cada grup, la puntuació ix d'una mitjana entre fiabilitat de la marca, preu (mes barat, millor), autonomia i les tres valoracions personals.</p>
-    <div class="formula">
-      <span><b>Fiabilitat</b> marca</span>
-      <span><b>Preu</b> (invers)</span>
-      <span><b>Autonomia</b></span>
-      <span><b>Distància</b> taller (invers)</span>
-      <span>★ <b>Meua</b></span>
-      <span>★ <b>Aina</b></span>
-      <span>★ <b>Maria</b></span>
-    </div>
   </header>
 
   <div class="toolbar">
@@ -612,6 +608,18 @@ function effectiveAutonomia(car){
   return car.autonomia;
 }
 
+function isComplete(car){
+  const base = car.marca && car.model && car.tipologia && car.segment && car.tecnologia
+    && car.preu != null && car.capacitat != null
+    && car.fiabilitat > 0 && car.meua > 0 && car.aina > 0 && car.maria > 0;
+  if(!base) return false;
+  if(isSplitTech(car.tecnologia)){
+    return car.autonomiaElectrica != null && car.autonomiaCombustio != null
+      && car.potenciaElectrica != null && car.potenciaCombustio != null;
+  }
+  return car.autonomia != null && car.potencia != null;
+}
+
 function norm(value, min, max, invert){
   if(max === min) return 5;
   let t = (value - min) / (max - min);
@@ -742,6 +750,7 @@ function render(){
           <div class="top-line">
             <span class="marca">${esc(c.marca)}</span>
             <span class="model">${esc(c.model)}</span>
+            ${isComplete(c) ? `<span class="complete-badge" title="Fitxa completa">✓</span>` : ''}
           </div>
           <div class="tags">
             <span class="tag">${esc(c.tipologia||'—')}</span>
