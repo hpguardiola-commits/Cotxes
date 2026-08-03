@@ -336,6 +336,7 @@
       <span><b>Fiabilitat</b> marca</span>
       <span><b>Preu</b> (invers)</span>
       <span><b>Autonomia</b></span>
+      <span><b>Distància</b> taller (invers)</span>
       <span>★ <b>Meua</b></span>
       <span>★ <b>Aina</b></span>
       <span>★ <b>Maria</b></span>
@@ -345,6 +346,7 @@
   <div class="toolbar">
     <h2>Rànquing <span class="count-badge" id="countBadge">— 0 cotxes</span></h2>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="ghost" id="workshopBtn">Distàncies a tallers</button>
       <button class="ghost" id="ocuBtn">Omplir fiabilitat (OCU)</button>
       <button class="ghost" id="exportBtn">Exportar JSON</button>
       <button class="ghost" id="importBtn">Importar JSON</button>
@@ -357,6 +359,18 @@
     Fiabilitat de marca basada en l'enquesta OCU publicada a
     <a href="https://www.coches.net/noticias/marcas-modelos-coches-mas-fiables" target="_blank" rel="noopener" style="color:var(--accent);">coches.net</a> — escala 0–100 convertida a 1–5.
   </p>
+
+  <div class="panel" id="workshopPanel">
+    <h3>Distància al taller de referència, per marca</h3>
+    <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px; line-height:1.5;">
+      Configura la distància (km) al taller de referència de cada marca. Es tindrà en compte a la puntuació: com més a prop, millor. Deixa el camp buit si no vols que eixa marca compte en aquest criteri.
+    </p>
+    <div class="grid-form" id="workshopFields" style="grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));"></div>
+    <div class="panel-actions">
+      <button class="ghost" id="workshopCancelBtn">Cancel·lar</button>
+      <button class="primary" id="workshopSaveBtn">Guardar distàncies</button>
+    </div>
+  </div>
 
   <div class="panel" id="formPanel">
     <h3 id="formTitle">Nou cotxe</h3>
@@ -424,6 +438,26 @@
 
 <script>
 const STORAGE_KEY = 'cars-list';
+const WORKSHOP_KEY = 'workshop-distances';
+let workshopDistances = {}; // keyed by normBrand(marca) -> km
+
+function workshopDistanceFor(marca){
+  const v = workshopDistances[normBrand(marca)];
+  return (v != null && v >= 0) ? v : null;
+}
+
+async function loadWorkshopDistances(){
+  try{
+    const res = await window.storage.get(WORKSHOP_KEY, true);
+    workshopDistances = res && res.value ? JSON.parse(res.value) : {};
+  }catch(e){ workshopDistances = {}; }
+}
+
+async function persistWorkshopDistances(){
+  try{
+    await window.storage.set(WORKSHOP_KEY, JSON.stringify(workshopDistances), true);
+  }catch(e){ console.error('Error guardant distàncies', e); }
+}
 let editingId = null;
 let cars = [];
 
@@ -446,520 +480,4 @@ function uid(){ return 'c_' + Date.now().toString(36) + Math.random().toString(3
 // Fiabilitat de marca — enquesta OCU (2026), publicada a coches.net
 // https://www.coches.net/noticias/marcas-modelos-coches-mas-fiables
 const OCU_RELIABILITY = {
-  LEXUS:93, TOYOTA:91, SUZUKI:91, SUBARU:91, HONDA:89, TESLA:89, BYD:89, SMART:89,
-  MAZDA:89, MITSUBISHI:89, KIA:89, BMW:87, HYUNDAI:87, MINI:87, LANCIA:87, NISSAN:87,
-  'MERCEDES-BENZ':84, MERCEDES:84, AUDI:84, CUPRA:84, DACIA:84, SEAT:84, PORSCHE:84,
-  SKODA:82, FIAT:82, VOLVO:82, VOLKSWAGEN:82, RENAULT:82, JEEP:82, POLESTAR:82,
-  FORD:80, 'ALFA ROMEO':80, JAGUAR:80, OPEL:80, PEUGEOT:76, CITROEN:76, 'DS AUTOMOBILES':76,
-  DS:76, 'LYNK&CO':76, 'LYNK & CO':76, MG:72, 'LAND ROVER':64
-};
-
-function normBrand(s){
-  return String(s||'')
-    .toUpperCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // treu accents
-    .trim();
-}
-
-function ocuScoreFor(marca){
-  const key = normBrand(marca);
-  return OCU_RELIABILITY[key] ?? null;
-}
-
-function ocuStarsFor(marca){
-  const score = ocuScoreFor(marca);
-  if(score == null) return null;
-  return Math.min(5, Math.max(1, Math.round((score/100)*5)));
-}
-
-// Llista de marques (noms canònics per al desplegable) de l'enquesta OCU
-const OCU_BRANDS = [
-  'Alfa Romeo','Audi','BMW','BYD','Citroën','Cupra','Dacia','DS Automobiles','Fiat',
-  'Ford','Honda','Hyundai','Jaguar','Jeep','Kia','Lancia','Land Rover','Lexus',
-  'Lynk & Co','Mazda','Mercedes-Benz','MG','Mini','Mitsubishi','Nissan','Opel',
-  'Peugeot','Polestar','Porsche','Renault','Seat','Skoda','smart','Subaru',
-  'Suzuki','Tesla','Toyota','Volkswagen','Volvo'
-].sort((a,b) => a.localeCompare(b, 'ca'));
-
-const NEW_BRAND_VALUE = '__new__';
-
-function populateMarcaSelect(){
-  const sel = document.getElementById('f_marca');
-  sel.innerHTML = OCU_BRANDS.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('')
-    + `<option value="${NEW_BRAND_VALUE}">+ Afegir marca nova…</option>`;
-}
-
-function setMarcaValue(marca){
-  const sel = document.getElementById('f_marca');
-  const newInput = document.getElementById('f_marca_new');
-  const match = OCU_BRANDS.find(b => normBrand(b) === normBrand(marca));
-  if(match){
-    sel.value = match;
-    newInput.style.display = 'none';
-    newInput.value = '';
-  }else{
-    sel.value = NEW_BRAND_VALUE;
-    newInput.style.display = 'block';
-    newInput.value = marca || '';
-  }
-}
-
-function getMarcaValue(){
-  const sel = document.getElementById('f_marca');
-  const newInput = document.getElementById('f_marca_new');
-  if(sel.value === NEW_BRAND_VALUE) return newInput.value.trim();
-  return sel.value;
-}
-
-async function loadCars(){
-  try{
-    const res = await window.storage.get(STORAGE_KEY, true);
-    cars = res && res.value ? JSON.parse(res.value) : null;
-  }catch(e){ cars = null; }
-  if(!cars){
-    cars = seed.map(c => ({...c, id: uid()}));
-    await persist();
-  }
-  render();
-}
-
-async function persist(){
-  try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(cars), true);
-  }catch(e){ console.error('Error guardant', e); }
-}
-
-function isSplitTech(tech){
-  return tech === 'PHEV' || tech === 'E-REV';
-}
-
-function effectiveAutonomia(car){
-  if(isSplitTech(car.tecnologia)){
-    const e = car.autonomiaElectrica || 0;
-    const c = car.autonomiaCombustio || 0;
-    return (e + c) > 0 ? (e + c) : null;
-  }
-  return car.autonomia;
-}
-
-function norm(value, min, max, invert){
-  if(max === min) return 5;
-  let t = (value - min) / (max - min);
-  if(invert) t = 1 - t;
-  return 1 + t * 4; // 1..5
-}
-
-function computeScore(car){
-  const parts = [];
-  if(car.fiabilitat) parts.push(car.fiabilitat);
-
-  const sameGroup = cars.filter(c => c.tecnologia === car.tecnologia);
-
-  const priced = sameGroup.filter(c => c.preu != null && c.preu > 0);
-  if(car.preu != null && car.preu > 0){
-    if(priced.length > 1){
-      const min = Math.min(...priced.map(c=>c.preu));
-      const max = Math.max(...priced.map(c=>c.preu));
-      parts.push(norm(car.preu, min, max, true));
-    } else parts.push(5);
-  }
-
-  const carAutonomia = effectiveAutonomia(car);
-  const ranged = sameGroup
-    .map(c => ({c, a: effectiveAutonomia(c)}))
-    .filter(x => x.a != null && x.a > 0);
-  if(carAutonomia != null && carAutonomia > 0){
-    if(ranged.length > 1){
-      const min = Math.min(...ranged.map(x=>x.a));
-      const max = Math.max(...ranged.map(x=>x.a));
-      parts.push(norm(carAutonomia, min, max, false));
-    } else parts.push(5);
-  }
-
-  if(car.meua) parts.push(car.meua);
-  if(car.aina) parts.push(car.aina);
-  if(car.maria) parts.push(car.maria);
-
-  if(parts.length === 0) return null;
-  return parts.reduce((a,b)=>a+b,0) / parts.length;
-}
-
-function starRow(value){
-  let s = '';
-  for(let i=1;i<=5;i++) s += (i<=value ? '★' : '☆');
-  return s;
-}
-
-function techLabel(t){
-  return {ELECTRIC:'Elèctric', 'E-REV':'E-REV', PHEV:'PHEV', HIBRID:'Híbrid', GASOLINA:'Gasolina', DIESEL:'Diésel'}[t] || t;
-}
-
-function euro(n){
-  if(n == null) return '—';
-  return n.toLocaleString('ca-ES') + ' €';
-}
-
-let activeTab = 'ALL';
-
-function render(){
-  const listRootEl = document.getElementById('listRoot');
-  const tabsRootEl = document.getElementById('tabsRoot');
-  document.getElementById('countBadge').textContent = `— ${cars.length} cotxe${cars.length===1?'':'s'}`;
-
-  if(cars.length === 0){
-    tabsRootEl.innerHTML = '';
-    listRootEl.innerHTML = `<div class="empty"><b>Encara no hi ha cap cotxe</b>Prem "+ Afegir cotxe" per començar la comparativa.</div>`;
-    return;
-  }
-
-  const scored = cars.map(c => ({...c, score: computeScore(c)}));
-
-  // agrupar per tecnologia, seguint un ordre preferent
-  const techOrder = ['ELECTRIC','E-REV','PHEV','HIBRID','GASOLINA','DIESEL'];
-  const groups = {};
-  scored.forEach(c => {
-    const key = c.tecnologia || 'ALTRES';
-    (groups[key] = groups[key] || []).push(c);
-  });
-  const keys = Object.keys(groups).sort((a,b) => {
-    const ia = techOrder.indexOf(a), ib = techOrder.indexOf(b);
-    return (ia<0?99:ia) - (ib<0?99:ib);
-  });
-
-  if(activeTab !== 'ALL' && !keys.includes(activeTab)) activeTab = 'ALL';
-
-  // ---- pestanyes ----
-  const tabDefs = [{key:'ALL', label:'Tots', count: cars.length}]
-    .concat(keys.map(k => ({key:k, label:techLabel(k), count: groups[k].length})));
-
-  tabsRootEl.innerHTML = tabDefs.map(t => `
-    <button class="tab ${activeTab===t.key?'active':''}" onclick="setTab('${t.key}')">
-      ${esc(t.label)} <span class="tab-count">${t.count}</span>
-    </button>
-  `).join('');
-
-  // ---- llista ----
-  const keysToShow = activeTab === 'ALL' ? keys : [activeTab];
-
-  listRootEl.innerHTML = keysToShow.map(key => {
-    const list = groups[key].slice().sort((a,b) => {
-      if(a.score == null && b.score == null) return 0;
-      if(a.score == null) return 1;
-      if(b.score == null) return -1;
-      return b.score - a.score;
-    });
-
-    const rows = list.map((c, idx) => {
-      const rankClass = idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'';
-      const scoreColor = c.score == null ? 'var(--text-dim)' :
-        c.score >= 4 ? 'var(--accent)' : c.score >= 2.5 ? 'var(--amber)' : 'var(--danger)';
-      return `
-      <div class="car-row ${rankClass}">
-        <div class="pos">P${idx+1}<small>${idx===0?'TOP':''}</small></div>
-        <div class="car-info">
-          <div class="top-line">
-            <span class="marca">${esc(c.marca)}</span>
-            <span class="model">${esc(c.model)}</span>
-          </div>
-          <div class="tags">
-            <span class="tag">${esc(c.tipologia||'—')}</span>
-            <span class="tag">Seg. ${esc(c.segment||'—')}</span>
-            <span class="tag tech-${esc(c.tecnologia)}">${techLabel(c.tecnologia)}</span>
-          </div>
-          <div class="specs">
-            <span class="spec"><b>${euro(c.preu)}</b> preu</span>
-            ${isSplitTech(c.tecnologia) ? `
-              <span class="spec"><b>${c.autonomiaElectrica ?? '—'}</b> km elèctric</span>
-              <span class="spec"><b>${c.autonomiaCombustio ?? '—'}</b> km combustió</span>
-              ${c.potenciaElectrica ? `<span class="spec"><b>${c.potenciaElectrica}</b> CV elèctric</span>` : ''}
-              ${c.potenciaCombustio ? `<span class="spec"><b>${c.potenciaCombustio}</b> CV combustió</span>` : ''}
-            ` : `
-              <span class="spec"><b>${c.autonomia ?? '—'}</b> km autonomia</span>
-              ${c.potencia ? `<span class="spec"><b>${c.potencia}</b> CV</span>` : ''}
-            `}
-            ${c.capacitat ? `<span class="spec"><b>${c.capacitat}</b> kWh</span>` : ''}
-          </div>
-          <div class="mini-stars">
-            <span class="who"><span class="name">Marca</span><span class="stars">${starRow(c.fiabilitat)}</span></span>
-            <span class="who"><span class="name">Meua</span><span class="stars">${starRow(c.meua)}</span></span>
-            <span class="who"><span class="name">Aina</span><span class="stars">${starRow(c.aina)}</span></span>
-            <span class="who"><span class="name">Maria</span><span class="stars">${starRow(c.maria)}</span></span>
-          </div>
-        </div>
-        <div>
-          <div class="score-block">
-            <div class="dial" style="background:conic-gradient(${scoreColor} ${c.score ? (c.score/5*360) : 0}deg, var(--line) 0deg);">
-              <div class="inner">
-                ${c.score != null
-                  ? `<span class="val">${c.score.toFixed(1)}</span><span class="max">/ 5</span>`
-                  : `<span class="na">S/P</span>`}
-              </div>
-            </div>
-          </div>
-          <div class="row-actions">
-            <button class="icon-btn" onclick="editCar('${c.id}')" title="Editar">✎</button>
-            <button class="icon-btn" onclick="deleteCar('${c.id}')" title="Eliminar">✕</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-
-    const showHeader = activeTab === 'ALL';
-    return `
-      ${showHeader ? `
-      <div class="group-header">
-        <span class="g-title">${techLabel(key)}</span>
-        <span class="g-line"></span>
-        <span class="g-count">${list.length} cotxe${list.length===1?'':'s'}</span>
-      </div>` : ''}
-      ${rows}
-    `;
-  }).join('');
-}
-
-window.setTab = (key) => {
-  activeTab = key;
-  render();
-};
-
-function esc(s){
-  if(s==null) return '';
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-// ---------- FORM ----------
-const panel = document.getElementById('formPanel');
-const starFields = {};
-
-function buildStarField(container, key){
-  container.innerHTML = '';
-  let val = 0;
-  for(let i=1;i<=5;i++){
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'star-btn';
-    b.textContent = '★';
-    b.dataset.i = i;
-    b.onclick = () => { val = (val === i) ? 0 : i; paint(); };
-    container.appendChild(b);
-  }
-  function paint(){
-    [...container.children].forEach(b => b.classList.toggle('filled', +b.dataset.i <= val));
-  }
-  starFields[key] = { get: () => val, set: v => { val = v || 0; paint(); } };
-}
-function toggleAutonomiaGroups(){
-  const tech = document.getElementById('f_tecnologia').value;
-  const split = isSplitTech(tech);
-  document.getElementById('groupStandard').style.display = split ? 'none' : 'grid';
-  document.getElementById('groupPhevErev').style.display = split ? 'grid' : 'none';
-}
-document.getElementById('f_tecnologia').addEventListener('change', toggleAutonomiaGroups);
-
-document.querySelectorAll('.starfield').forEach(el => buildStarField(el, el.dataset.star));
-
-populateMarcaSelect();
-document.getElementById('f_marca').addEventListener('change', (e) => {
-  const newInput = document.getElementById('f_marca_new');
-  if(e.target.value === NEW_BRAND_VALUE){
-    newInput.style.display = 'block';
-    newInput.focus();
-  }else{
-    newInput.style.display = 'none';
-    newInput.value = '';
-  }
-});
-
-function resetForm(){
-  editingId = null;
-  document.getElementById('formTitle').textContent = 'Nou cotxe';
-  setMarcaValue('');
-  document.getElementById('f_marca').selectedIndex = 0;
-  document.getElementById('f_marca_new').style.display = 'none';
-  document.getElementById('f_model').value = '';
-  document.getElementById('f_tipologia').value = 'Turisme';
-  document.getElementById('f_segment').value = 'B';
-  document.getElementById('f_tecnologia').value = 'ELECTRIC';
-  document.getElementById('f_preu').value = '';
-  document.getElementById('f_autonomia').value = '';
-  document.getElementById('f_potencia').value = '';
-  document.getElementById('f_capacitat').value = '';
-  document.getElementById('f_autonomia_elec').value = '';
-  document.getElementById('f_autonomia_comb').value = '';
-  document.getElementById('f_potencia_elec').value = '';
-  document.getElementById('f_potencia_comb').value = '';
-  toggleAutonomiaGroups();
-  Object.values(starFields).forEach(s => s.set(0));
-}
-
-document.getElementById('addBtn').onclick = () => {
-  resetForm();
-  panel.classList.add('open');
-  document.getElementById('f_marca').focus();
-};
-document.getElementById('cancelBtn').onclick = () => panel.classList.remove('open');
-
-document.getElementById('saveBtn').onclick = async () => {
-  const marca = getMarcaValue();
-  const model = document.getElementById('f_model').value.trim();
-  if(!marca || !model){ alert('Cal indicar almenys la marca i el model.'); return; }
-
-  const data = {
-    marca, model,
-    tipologia: document.getElementById('f_tipologia').value,
-    segment: document.getElementById('f_segment').value,
-    tecnologia: document.getElementById('f_tecnologia').value,
-    preu: document.getElementById('f_preu').value ? +document.getElementById('f_preu').value : null,
-    autonomia: document.getElementById('f_autonomia').value ? +document.getElementById('f_autonomia').value : null,
-    potencia: document.getElementById('f_potencia').value ? +document.getElementById('f_potencia').value : null,
-    capacitat: document.getElementById('f_capacitat').value ? +document.getElementById('f_capacitat').value : null,
-    autonomiaElectrica: document.getElementById('f_autonomia_elec').value ? +document.getElementById('f_autonomia_elec').value : null,
-    autonomiaCombustio: document.getElementById('f_autonomia_comb').value ? +document.getElementById('f_autonomia_comb').value : null,
-    potenciaElectrica: document.getElementById('f_potencia_elec').value ? +document.getElementById('f_potencia_elec').value : null,
-    potenciaCombustio: document.getElementById('f_potencia_comb').value ? +document.getElementById('f_potencia_comb').value : null,
-    fiabilitat: starFields.f_fiabilitat.get(),
-    meua: starFields.f_meua.get(),
-    aina: starFields.f_aina.get(),
-    maria: starFields.f_maria.get(),
-  };
-
-  if(editingId){
-    const idx = cars.findIndex(c => c.id === editingId);
-    cars[idx] = {...cars[idx], ...data};
-  }else{
-    cars.push({...data, id: uid()});
-  }
-  await persist();
-  panel.classList.remove('open');
-  render();
-};
-
-window.editCar = (id) => {
-  const c = cars.find(c => c.id === id);
-  if(!c) return;
-  editingId = id;
-  document.getElementById('formTitle').textContent = `Editar ${c.marca} ${c.model}`;
-  setMarcaValue(c.marca);
-  document.getElementById('f_model').value = c.model;
-  document.getElementById('f_tipologia').value = c.tipologia || 'Turisme';
-  document.getElementById('f_segment').value = c.segment || 'B';
-  document.getElementById('f_tecnologia').value = c.tecnologia || 'ELECTRIC';
-  document.getElementById('f_preu').value = c.preu ?? '';
-  document.getElementById('f_autonomia').value = c.autonomia ?? '';
-  document.getElementById('f_potencia').value = c.potencia ?? '';
-  document.getElementById('f_capacitat').value = c.capacitat ?? '';
-  document.getElementById('f_autonomia_elec').value = c.autonomiaElectrica ?? '';
-  document.getElementById('f_autonomia_comb').value = c.autonomiaCombustio ?? '';
-  document.getElementById('f_potencia_elec').value = c.potenciaElectrica ?? '';
-  document.getElementById('f_potencia_comb').value = c.potenciaCombustio ?? '';
-  toggleAutonomiaGroups();
-  starFields.f_fiabilitat.set(c.fiabilitat);
-  starFields.f_meua.set(c.meua);
-  starFields.f_aina.set(c.aina);
-  starFields.f_maria.set(c.maria);
-  panel.classList.add('open');
-  window.scrollTo({top:0, behavior:'smooth'});
-};
-
-window.deleteCar = async (id) => {
-  const c = cars.find(c => c.id === id);
-  if(!c) return;
-  if(!confirm(`Eliminar ${c.marca} ${c.model}?`)) return;
-  cars = cars.filter(c => c.id !== id);
-  await persist();
-  render();
-};
-
-// ---------- FIABILITAT OCU ----------
-document.getElementById('ocuBtn').onclick = async () => {
-  const matches = cars.filter(c => ocuStarsFor(c.marca) != null);
-  if(matches.length === 0){
-    alert('Cap marca de la teua llista apareix a l\'enquesta OCU.');
-    return;
-  }
-  const withData = matches.filter(c => c.fiabilitat > 0);
-  let overwrite = true;
-  if(withData.length > 0){
-    overwrite = confirm(`${matches.length} cotxe(s) tenen marca reconeguda per l'OCU (${withData.length} ja tenen fiabilitat puntuada).\n\nAcceptar: sobreescriure-ho tot amb la puntuació OCU.\nCancel·lar: només omplir les que encara no tenen fiabilitat.`);
-  }
-  cars = cars.map(c => {
-    const stars = ocuStarsFor(c.marca);
-    if(stars == null) return c;
-    if(overwrite || !(c.fiabilitat > 0)) return {...c, fiabilitat: stars};
-    return c;
-  });
-  await persist();
-  render();
-};
-
-// ---------- EXPORTAR JSON ----------
-document.getElementById('exportBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify(cars, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const date = new Date().toISOString().slice(0,10);
-  a.href = url;
-  a.download = `comparativa-cotxes-${date}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-};
-
-// ---------- IMPORTAR JSON ----------
-document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
-document.getElementById('importFile').onchange = async (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-  try{
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    if(!Array.isArray(parsed)) throw new Error('El fitxer no conté una llista de cotxes.');
-    const normalized = parsed.map(c => ({
-      id: c.id && typeof c.id === 'string' ? c.id : uid(),
-      marca: c.marca || '',
-      model: c.model || '',
-      tipologia: c.tipologia || 'Turisme',
-      segment: c.segment || '',
-      tecnologia: c.tecnologia || 'ELECTRIC',
-      preu: c.preu != null ? +c.preu : null,
-      autonomia: c.autonomia != null ? +c.autonomia : null,
-      potencia: c.potencia != null ? +c.potencia : null,
-      capacitat: c.capacitat != null ? +c.capacitat : null,
-      autonomiaElectrica: c.autonomiaElectrica != null ? +c.autonomiaElectrica : null,
-      autonomiaCombustio: c.autonomiaCombustio != null ? +c.autonomiaCombustio : null,
-      potenciaElectrica: c.potenciaElectrica != null ? +c.potenciaElectrica : null,
-      potenciaCombustio: c.potenciaCombustio != null ? +c.potenciaCombustio : null,
-      fiabilitat: +c.fiabilitat || 0,
-      meua: +c.meua || 0,
-      aina: +c.aina || 0,
-      maria: +c.maria || 0,
-    }));
-    const replace = confirm(`S'han trobat ${normalized.length} cotxe(s) al fitxer.\n\nAcceptar: reemplaçar tota la llista actual.\nCancel·lar: afegir-los a la llista actual.`);
-    if(replace){
-      cars = normalized;
-    }else{
-      // eviten ids duplicats en afegir
-      const existingIds = new Set(cars.map(c=>c.id));
-      cars = cars.concat(normalized.map(c => existingIds.has(c.id) ? {...c, id: uid()} : c));
-    }
-    await persist();
-    render();
-  }catch(err){
-    alert('No s\'ha pogut llegir el fitxer: ' + err.message);
-  }finally{
-    e.target.value = '';
-  }
-};
-
-document.getElementById('resetBtn').onclick = async () => {
-  if(!confirm('Això esborrarà tots els cotxes i tornarà a les dades inicials. Continuar?')) return;
-  cars = seed.map(c => ({...c, id: uid()}));
-  await persist();
-  render();
-};
-
-loadCars();
-</script>
-</body>
-</html>
+  LEXUS:93, TOYOTA:91, SUZUKI:91, SU
