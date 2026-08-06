@@ -283,6 +283,30 @@
   }
   .tab.active .tab-count{ background:rgba(7,19,15,.25); color:#07130f; }
 
+  /* ---------- PONDERACIÓ ---------- */
+  .weight-row{
+    display:grid;
+    grid-template-columns: 170px 1fr 46px;
+    align-items:center;
+    gap:14px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .weight-row:last-child{ border-bottom:none; }
+  .weight-row .w-label{
+    font-family:'Oswald'; font-size:13px; text-transform:uppercase; letter-spacing:.03em;
+    color:var(--text);
+  }
+  .weight-row input[type=range]{
+    width:100%;
+    accent-color:var(--accent);
+    height:4px;
+  }
+  .weight-row .w-val{
+    font-family:'JetBrains Mono', monospace; font-size:13px; color:var(--accent);
+    text-align:right;
+  }
+
   .specs{ display:flex; gap:16px; margin-top:9px; flex-wrap:wrap; }
   .spec{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--text-dim); }
   .spec b{ color:var(--text); font-weight:600; }
@@ -345,6 +369,7 @@
   <div class="toolbar">
     <h2>Rànquing <span class="count-badge" id="countBadge">— 0 cotxes</span></h2>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="ghost" id="weightsBtn" style="border-color:var(--accent-dim); color:var(--accent);">⚖ Ponderació</button>
       <button class="ghost" id="workshopBtn">Distàncies a tallers</button>
       <button class="ghost" id="ocuBtn">Omplir fiabilitat (OCU)</button>
       <button class="ghost" id="exportBtn">Exportar JSON</button>
@@ -358,6 +383,19 @@
     Fiabilitat de marca basada en l'enquesta OCU publicada a
     <a href="https://www.coches.net/noticias/marcas-modelos-coches-mas-fiables" target="_blank" rel="noopener" style="color:var(--accent);">coches.net</a> — escala 0–100 convertida a 1–5.
   </p>
+
+  <div class="panel" id="weightsPanel">
+    <h3>Ponderació dels criteris</h3>
+    <p style="font-size:12.5px; color:var(--text-dim); margin-bottom:16px; line-height:1.5;">
+      Ajusta la importància de cada criteri a la puntuació. 1× és el pes normal; posa'l a 0 per a excloure'l del tot.
+    </p>
+    <div id="weightFields"></div>
+    <div class="panel-actions">
+      <button class="ghost" id="weightsResetBtn">Restablir per defecte</button>
+      <button class="ghost" id="weightsCancelBtn">Cancel·lar</button>
+      <button class="primary" id="weightsSaveBtn">Guardar ponderació</button>
+    </div>
+  </div>
 
   <div class="panel" id="workshopPanel">
     <h3>Distància al taller de referència, per marca</h3>
@@ -447,6 +485,38 @@
 const STORAGE_KEY = 'cars-list';
 const WORKSHOP_KEY = 'workshop-distances';
 let workshopDistances = {}; // keyed by normBrand(marca) -> km
+
+const WEIGHTS_KEY = 'score-weights';
+const WEIGHT_DEFS = [
+  {key:'fiabilitat', label:'Fiabilitat marca'},
+  {key:'etiqueta', label:'Etiqueta ambiental'},
+  {key:'preu', label:'Preu (mes barat)'},
+  {key:'autonomia', label:'Autonomia'},
+  {key:'distanciaTaller', label:'Distància taller'},
+  {key:'meua', label:'★ Meua'},
+  {key:'aina', label:'★ Aina'},
+  {key:'maria', label:'★ Maria'},
+];
+function defaultWeights(){
+  const w = {};
+  WEIGHT_DEFS.forEach(d => w[d.key] = 1);
+  return w;
+}
+let weights = defaultWeights();
+
+async function loadWeights(){
+  try{
+    const res = await window.storage.get(WEIGHTS_KEY, true);
+    const parsed = res && res.value ? JSON.parse(res.value) : null;
+    weights = parsed ? {...defaultWeights(), ...parsed} : defaultWeights();
+  }catch(e){ weights = defaultWeights(); }
+}
+
+async function persistWeights(){
+  try{
+    await window.storage.set(WEIGHTS_KEY, JSON.stringify(weights), true);
+  }catch(e){ console.error('Error guardant ponderació', e); }
+}
 
 function workshopDistanceFor(marca){
   const v = workshopDistances[normBrand(marca)];
@@ -562,6 +632,7 @@ async function loadCars(){
     await persist();
   }
   await loadWorkshopDistances();
+  await loadWeights();
   render();
 }
 
@@ -604,12 +675,17 @@ function norm(value, min, max, invert){
 }
 
 function computeScore(car){
-  const parts = [];
-  if(car.fiabilitat) parts.push(car.fiabilitat);
+  const comps = []; // {value, key}
+  function add(value, key){
+    if(value == null) return;
+    comps.push({value, key});
+  }
+
+  add(car.fiabilitat || null, 'fiabilitat');
 
   const ETIQUETA_SCORE = {'0':5, 'ECO':3, 'C':1};
   if(car.etiqueta && ETIQUETA_SCORE[car.etiqueta] != null){
-    parts.push(ETIQUETA_SCORE[car.etiqueta]);
+    add(ETIQUETA_SCORE[car.etiqueta], 'etiqueta');
   }
 
   const sameGroup = cars.filter(c => c.tecnologia === car.tecnologia);
@@ -619,8 +695,8 @@ function computeScore(car){
     if(priced.length > 1){
       const min = Math.min(...priced.map(c=>c.preu));
       const max = Math.max(...priced.map(c=>c.preu));
-      parts.push(norm(car.preu, min, max, true));
-    } else parts.push(5);
+      add(norm(car.preu, min, max, true), 'preu');
+    } else add(5, 'preu');
   }
 
   const carAutonomia = effectiveAutonomia(car);
@@ -631,13 +707,13 @@ function computeScore(car){
     if(ranged.length > 1){
       const min = Math.min(...ranged.map(x=>x.a));
       const max = Math.max(...ranged.map(x=>x.a));
-      parts.push(norm(carAutonomia, min, max, false));
-    } else parts.push(5);
+      add(norm(carAutonomia, min, max, false), 'autonomia');
+    } else add(5, 'autonomia');
   }
 
-  if(car.meua) parts.push(car.meua);
-  if(car.aina) parts.push(car.aina);
-  if(car.maria) parts.push(car.maria);
+  add(car.meua || null, 'meua');
+  add(car.aina || null, 'aina');
+  add(car.maria || null, 'maria');
 
   const carDist = workshopDistanceFor(car.marca);
   const distanced = sameGroup
@@ -647,12 +723,21 @@ function computeScore(car){
     if(distanced.length > 1){
       const min = Math.min(...distanced.map(x=>x.d));
       const max = Math.max(...distanced.map(x=>x.d));
-      parts.push(norm(carDist, min, max, true));
-    } else parts.push(5);
+      add(norm(carDist, min, max, true), 'distanciaTaller');
+    } else add(5, 'distanciaTaller');
   }
 
-  if(parts.length === 0) return null;
-  return parts.reduce((a,b)=>a+b,0) / parts.length;
+  let weightedSum = 0;
+  let totalWeight = 0;
+  comps.forEach(c => {
+    const w = weights[c.key] != null ? weights[c.key] : 1;
+    if(w <= 0) return;
+    weightedSum += c.value * w;
+    totalWeight += w;
+  });
+
+  if(totalWeight === 0) return null;
+  return weightedSum / totalWeight;
 }
 
 function starRow(value){
@@ -872,16 +957,60 @@ function resetForm(){
   Object.values(starFields).forEach(s => s.set(0));
 }
 
+const weightsPanel = document.getElementById('weightsPanel');
+const workshopPanel = document.getElementById('workshopPanel');
+
+function closeAllPanels(){
+  panel.classList.remove('open');
+  workshopPanel.classList.remove('open');
+  weightsPanel.classList.remove('open');
+}
+
 document.getElementById('addBtn').onclick = () => {
   resetForm();
-  workshopPanel.classList.remove('open');
+  closeAllPanels();
   panel.classList.add('open');
   document.getElementById('f_marca').focus();
 };
 document.getElementById('cancelBtn').onclick = () => panel.classList.remove('open');
 
+// ---------- PANELL DE PONDERACIÓ ----------
+function renderWeightFields(){
+  const fieldsEl = document.getElementById('weightFields');
+  fieldsEl.innerHTML = WEIGHT_DEFS.map(d => {
+    const v = weights[d.key] != null ? weights[d.key] : 1;
+    return `
+      <div class="weight-row">
+        <span class="w-label">${esc(d.label)}</span>
+        <input type="range" min="0" max="3" step="0.25" value="${v}" data-weight-key="${d.key}"
+          oninput="this.nextElementSibling.textContent = (+this.value).toFixed(2) + '×'">
+        <span class="w-val">${(+v).toFixed(2)}×</span>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('weightsBtn').onclick = () => {
+  closeAllPanels();
+  renderWeightFields();
+  weightsPanel.classList.add('open');
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+document.getElementById('weightsCancelBtn').onclick = () => weightsPanel.classList.remove('open');
+document.getElementById('weightsResetBtn').onclick = () => {
+  weights = defaultWeights();
+  renderWeightFields();
+};
+document.getElementById('weightsSaveBtn').onclick = async () => {
+  const inputs = document.querySelectorAll('#weightFields input[data-weight-key]');
+  const updated = {};
+  inputs.forEach(inp => { updated[inp.dataset.weightKey] = +inp.value; });
+  weights = updated;
+  await persistWeights();
+  weightsPanel.classList.remove('open');
+  render();
+};
+
 // ---------- PANELL DE DISTÀNCIES A TALLERS ----------
-const workshopPanel = document.getElementById('workshopPanel');
 
 function renderWorkshopFields(){
   const brandsInUse = Array.from(new Set(cars.map(c => c.marca).filter(Boolean)));
@@ -901,7 +1030,7 @@ function renderWorkshopFields(){
 }
 
 document.getElementById('workshopBtn').onclick = () => {
-  panel.classList.remove('open');
+  closeAllPanels();
   renderWorkshopFields();
   workshopPanel.classList.add('open');
   window.scrollTo({top:0, behavior:'smooth'});
@@ -981,6 +1110,7 @@ window.editCar = (id) => {
   starFields.f_meua.set(c.meua);
   starFields.f_aina.set(c.aina);
   starFields.f_maria.set(c.maria);
+  closeAllPanels();
   panel.classList.add('open');
   window.scrollTo({top:0, behavior:'smooth'});
 };
