@@ -4,14 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Graella — Comparativa de cotxes</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#12151b">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Cotxes">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -357,6 +349,7 @@
     text-align:center; color:var(--text-dim); font-size:11.5px;
     font-family:'JetBrains Mono', monospace; padding:30px 0 10px;
   }
+  footer #appVersion{ color:var(--accent); font-weight:700; }
 
   @media (max-width:600px){
     .car-row{ grid-template-columns: 34px 1fr auto; padding:14px; }
@@ -486,39 +479,16 @@
   <div class="tabs" id="tabsRoot"></div>
   <div id="listRoot"></div>
 
-  <footer>DADES COMPARTIDES · ES DESEN AUTOMÀTICAMENT</footer>
+  <footer>DADES COMPARTIDES · ES DESEN AUTOMÀTICAMENT · <span id="appVersion"></span></footer>
 </div>
 
 <script>
+const APP_VERSION = 'v1.5.0';
+document.getElementById('appVersion').textContent = APP_VERSION;
+console.log('Comparativa de cotxes —', APP_VERSION);
+
 const STORAGE_KEY = 'cars-list';
 const WORKSHOP_KEY = 'workshop-distances';
-
-// Dins de Claude.ai fem servir window.storage (compartit entre dispositius).
-// Fora de Claude (app instal·lada des d'un allotjament propi) no existeix,
-// així que caiem a localStorage del propi mòbil/navegador.
-const hasCloudStorage = typeof window.storage !== 'undefined'
-  && window.storage && typeof window.storage.get === 'function';
-
-const appStorage = hasCloudStorage ? window.storage : {
-  async get(key){
-    const raw = localStorage.getItem(key);
-    if(raw == null) throw new Error('not found');
-    return { key, value: raw };
-  },
-  async set(key, value){
-    localStorage.setItem(key, value);
-    return { key, value };
-  },
-  async delete(key){
-    localStorage.removeItem(key);
-    return { key, deleted:true };
-  },
-  async list(prefix){
-    const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
-    return { keys, prefix };
-  }
-};
-
 let workshopDistances = {}; // keyed by normBrand(marca) -> km
 
 const WEIGHTS_KEY = 'score-weights';
@@ -541,7 +511,7 @@ let weights = defaultWeights();
 
 async function loadWeights(){
   try{
-    const res = await appStorage.get(WEIGHTS_KEY, true);
+    const res = await window.storage.get(WEIGHTS_KEY, true);
     const parsed = res && res.value ? JSON.parse(res.value) : null;
     weights = parsed ? {...defaultWeights(), ...parsed} : defaultWeights();
   }catch(e){ weights = defaultWeights(); }
@@ -549,7 +519,7 @@ async function loadWeights(){
 
 async function persistWeights(){
   try{
-    await appStorage.set(WEIGHTS_KEY, JSON.stringify(weights), true);
+    await window.storage.set(WEIGHTS_KEY, JSON.stringify(weights), true);
   }catch(e){ console.error('Error guardant ponderació', e); }
 }
 
@@ -560,14 +530,14 @@ function workshopDistanceFor(marca){
 
 async function loadWorkshopDistances(){
   try{
-    const res = await appStorage.get(WORKSHOP_KEY, true);
+    const res = await window.storage.get(WORKSHOP_KEY, true);
     workshopDistances = res && res.value ? JSON.parse(res.value) : {};
   }catch(e){ workshopDistances = {}; }
 }
 
 async function persistWorkshopDistances(){
   try{
-    await appStorage.set(WORKSHOP_KEY, JSON.stringify(workshopDistances), true);
+    await window.storage.set(WORKSHOP_KEY, JSON.stringify(workshopDistances), true);
   }catch(e){ console.error('Error guardant distàncies', e); }
 }
 let editingId = null;
@@ -659,7 +629,7 @@ function getMarcaValue(){
 
 async function loadCars(){
   try{
-    const res = await appStorage.get(STORAGE_KEY, true);
+    const res = await window.storage.get(STORAGE_KEY, true);
     cars = res && res.value ? JSON.parse(res.value) : null;
   }catch(e){ cars = null; }
   if(!cars){
@@ -673,7 +643,7 @@ async function loadCars(){
 
 async function persist(){
   try{
-    await appStorage.set(STORAGE_KEY, JSON.stringify(cars), true);
+    await window.storage.set(STORAGE_KEY, JSON.stringify(cars), true);
   }catch(e){ console.error('Error guardant', e); }
 }
 
@@ -1250,12 +1220,6 @@ document.getElementById('resetBtn').onclick = async () => {
 };
 
 loadCars();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(err => console.warn('SW no registrat:', err));
-  });
-}
 </script>
 </body>
 </html>
